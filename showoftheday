@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# @file Simple-minded script to display shows from this date (in other years)
+#       and/or optionally add them to the current play list and start playing
+# @todo Better argument handling
+# @todo Accumulate and display total length of shows
+# @see  For arguments help, try: `deadoftheday help`
+
+LAST=`audtool playqueue-length`
+NEXT=$((LAST + 1))
+NAME=`basename $0`
+PLAY=$1
+DATE=$2
+SHOW=0
+
+if [ $NAME = "deadoftheday" ]; then
+  PREFIX='The_Grateful_Dead/'
+else
+  PREFIX=''
+fi
+
+if [ "$PLAY" == '-h' ] || [ "$PLAY" == 'help' ]; then
+  echo "With no args,          display shows from today's date (in other years)."
+  echo "With first arg 'show', display shows and tracks"
+  echo "With first arg 'play', append shows from today's date to playlist"
+  echo "                       and jump to the first newly added track."
+  echo "With last arg 'mm-dd', either display or append shows from that date."
+  exit;
+fi
+
+DATABASE="mariadb"
+assert_database() {
+  [ "$( systemctl is-active ${DATABASE} )" == "inactive" ] && sudo systemctl start ${DATABASE}
+}
+
+MUSICDIR="/imagine/music"
+assert_musicdir() {
+  [ $( mountpoint ${MUSICDIR} > /dev/null ) ] || mount ${MUSICDIR}
+}
+
+assert_database
+assert_musicdir
+
+if [ "$PLAY" != "play" ]; then
+  if [ "$PLAY" == "show" ]; then
+    SHOW=1
+    PLAY=0;
+  else
+    DATE=$PLAY
+    PLAY=0
+  fi
+fi
+
+if [ "x$DATE" == "x" ]; then
+  DATE=`date +"%m-%d"`
+fi
+
+DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%${PREFIX}____-${DATE}'"`
+
+for i in $DIRS; do
+  echo ""
+  if [ "$PLAY" == "0" ]; then
+    echo $i
+    MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
+    if [ "x$MYSQL" != "x" ]; then
+      echo $MYSQL;
+    fi
+    if [ $SHOW -ne 0 ]; then
+      ls $i
+    fi
+  else
+    echo "Adding $i"
+    MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
+    if [ "x$MYSQL" != "x" ]; then
+      echo $MYSQL;
+    fi
+    audtool playlist-addurl $i
+  fi
+done
+
+if [ "$PLAY" != "0" ]; then
+  audtool playlist-jump "$NEXT"
+  audtool playback-play
+fi
