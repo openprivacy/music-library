@@ -5,6 +5,7 @@
 //    echo "# $directory"
 //    musicdir "$directory"
 // done
+// find /imagine/music/flac -type d -regex ".*/[12X][90X][0-9X][0-9X]-[01X][0-9X]-[0123X][0-9X].?" -print0 | xargs -0 musicdir
 // musicdir /imagine/flac/jon/Bob_Weir_and_Rob_Wasserman/1989-09-10/bw+rw1991-05-17.s2.sbd.tinydancer.84389.sbeok.flac
 // musicdir Bob_Weir_and_Rob_Wasserman/1991-05-17
 
