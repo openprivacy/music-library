@@ -1,12 +1,18 @@
 #!/usr/bin/php
 <?php  // -*- php -*-
 
-// @todo: suck in all directories (not just dates) and comments, too.
+/**
+ * @file Parse files in music directory and save to 'music' database.
+ * @todo: configurable musicdir
+ * @todo: add option to recurse through directories
+ */
 
-$FLACDIR = '/imagine/music/flac';
-
-// Works for now, but '-print0 | xargs -0 musicdir' may be safer
-// time find $FLACDIR -type d -regex ".*/[12X][90X][0-9X][0-9X]-[01X][0-9X]-[0123X][0-9X].?" -exec musicdir {} \;
+if ( getenv("FLACDIR") == FALSE ) {
+  $FLACDIR = '/imagine/music/flac';
+}
+else {
+  $FLACDIR = getenv("FLACDIR");
+}
 
 if ($argc < 2) {
   print("Add new flac music directories to database\n");

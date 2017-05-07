@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # @file Simple-minded script to display shows from this date (in other years)
-#       and/or optionally add them to the current play list and start playing
+#       and/or optionally add them to the current play list and start playing.
+#       Call as `deadoftheday` to limit search to The_Grateful_Dead.
 # @todo Better argument handling
 # @todo Accumulate and display total length of shows
-# @see  For arguments help, try: `deadoftheday help`
+# @see  For arguments help, try: `showoftheday help`
 
 LAST=`audtool playqueue-length`
 NEXT=$((LAST + 1))
@@ -33,13 +34,13 @@ assert_database() {
   [ "$( systemctl is-active ${DATABASE} )" == "inactive" ] && sudo systemctl start ${DATABASE}
 }
 
-MUSICDIR="/imagine/music"
-assert_musicdir() {
-  [ $( mountpoint ${MUSICDIR} > /dev/null ) ] || mount ${MUSICDIR}
+MOUNTDIR=${MOUNTDIR-/imagine/music}
+assert_mountdir() {
+  [ $( mountpoint ${MOUNTDIR} > /dev/null ) ] || mount ${MOUNTDIR}
 }
 
 assert_database
-assert_musicdir
+assert_mountdir
 
 if [ "$PLAY" != "play" ]; then
   if [ "$PLAY" == "show" ]; then
@@ -55,7 +56,7 @@ if [ "x$DATE" == "x" ]; then
   DATE=`date +"%m-%d"`
 fi
 
-DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%/${PREFIX}____-${DATE}%'"`
+DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%/${PREFIX}____-${DATE}%' ORDER BY directory ASC"`
 COUNT=$( wc -l <<< "${DIRS}" )
 
 LASTART=''
