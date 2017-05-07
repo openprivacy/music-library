@@ -55,12 +55,14 @@ if [ "x$DATE" == "x" ]; then
   DATE=`date +"%m-%d"`
 fi
 
-DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%${PREFIX}____-${DATE}'"`
+DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%/${PREFIX}____-${DATE}%'"`
 
 for i in $DIRS; do
   echo ""
   if [ "$PLAY" == "0" ]; then
-    echo $i
+    DIRNAM="$( dirname $i )"
+    ARTIST="$( basename $DIRNAM )"
+    echo $ARTIST
     MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
     if [ "x$MYSQL" != "x" ]; then
       echo $MYSQL;
