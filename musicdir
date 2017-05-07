@@ -1,24 +1,22 @@
 #!/usr/bin/php
 <?php  // -*- php -*-
 
-// for directory in `ls -d /imagine/flac/jon/*/*`; do
-//    echo "# $directory"
-//    musicdir "$directory"
-// done
-// find /imagine/music/flac -type d -regex ".*/[12X][90X][0-9X][0-9X]-[01X][0-9X]-[0123X][0-9X].?" -print0 | xargs -0 musicdir
-// musicdir /imagine/flac/jon/Bob_Weir_and_Rob_Wasserman/1989-09-10/bw+rw1991-05-17.s2.sbd.tinydancer.84389.sbeok.flac
-// musicdir Bob_Weir_and_Rob_Wasserman/1991-05-17
+// @todo: suck in all directories (not just dates) and comments, too.
+
+$FLACDIR = '/imagine/music/flac';
+
+// Works for now, but '-print0 | xargs -0 musicdir' may be safer
+// time find $FLACDIR -type d -regex ".*/[12X][90X][0-9X][0-9X]-[01X][0-9X]-[0123X][0-9X].?" -exec musicdir {} \;
 
 if ($argc < 2) {
   print("Add new flac music directories to database\n");
-  print("Usage:  musicdir Bob_Weir_and_Rob_Wasserman/1989-09-10\n");
-  print("        musicdir /imagine/flac/jon/Bob_Weir_and_Rob_Wasserman/1991-05-17\n");
-  print("        musicdir Bob_Weir_and_Rob_Wasserman/1989-09-10/bw+rw1991-05-17.s2.sbd.tinydancer.84389.sbeok.flac\n");
+  print("Usage:  musicdir $FLACDIR/Zero/1995-12-31\n");
+  print("        musicdir $FLACDIR/Zero/1995-12-31/0-Golden_Road.flac\n");
   exit;
 }
 
 $mysqli = new mysqli("localhost", "root", "root", "music")
-  or die(mysql_error());
+       or die(mysql_error());
 
 $start_directory = getcwd();
 
@@ -33,13 +31,13 @@ for ($i = 1; $i < $argc; $i++) {
 
   $sanitized = str_replace('"', '\\"', $argv[$i]);
   if (substr($sanitized, 0, 1) != '/') {
-    $sanitized = '/imagine/flac/jon/' . $sanitized;
+    $sanitized = $FLACDIR . $sanitized;
   }
   if (chdir($sanitized) == false) {
     fprintf(STDERR, "Can't chdir to '%s'; skipping", $sanitized);
     continue;
   }
-  print("Reading from $sanitized...\n");
+  print("Reading from '$sanitized'...\n");
 
   $directory = $mysqli->real_escape_string(getcwd());
 

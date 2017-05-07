@@ -56,29 +56,31 @@ if [ "x$DATE" == "x" ]; then
 fi
 
 DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%/${PREFIX}____-${DATE}%'"`
+COUNT=$( wc -l <<< "${DIRS}" )
 
+LASTART=''
 for i in $DIRS; do
-  echo ""
-  if [ "$PLAY" == "0" ]; then
-    DIRNAM="$( dirname $i )"
-    ARTIST="$( basename $DIRNAM )"
+  DIRNAME="$( dirname $i )"
+  ARTIST="$( basename $DIRNAME )"
+  if [ "$LASTART" != "$ARTIST" ]; then
+    echo ""
     echo $ARTIST
-    MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
-    if [ "x$MYSQL" != "x" ]; then
-      echo $MYSQL;
+    LASTART="$ARTIST"
+  fi
+  MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
+  if [ "x$MYSQL" != "x" ]; then
+    if [ "$PLAY" == "play" ]; then
+      echo -n "Adding: "
+      audtool playlist-addurl $i
     fi
-    if [ $SHOW -ne 0 ]; then
-      ls $i
-    fi
-  else
-    echo "Adding $i"
-    MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
-    if [ "x$MYSQL" != "x" ]; then
-      echo $MYSQL;
-    fi
-    audtool playlist-addurl $i
+    echo $MYSQL;
+  fi
+  if [ $SHOW -ne 0 ]; then
+    ls $i
   fi
 done
+echo ""
+echo "$COUNT concerts played today!"
 
 if [ "$PLAY" != "0" ]; then
   audtool playlist-jump "$NEXT"
