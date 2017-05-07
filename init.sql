@@ -5,9 +5,9 @@ CREATE DATABASE music;
 USE music;
 
 CREATE TABLE value (
-  id         SERIAL NOT NULL,
-  value      TEXT   NOT NULL,
-UNIQUE INDEX(value(192))
+  id         SERIAL       NOT NULL,
+  value      VARCHAR(255) NOT NULL,
+UNIQUE INDEX(value(160))
 );
 
 CREATE INDEX value_id_index ON value(id);
