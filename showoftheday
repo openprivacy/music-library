@@ -68,7 +68,7 @@ for i in $DIRS; do
     echo $ARTIST
     LASTART="$ARTIST"
   fi
-  MYSQL=`mysql music -B -N -e "SELECT value FROM value WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
+  MYSQL=`mysql music -B -N -e "SELECT valuet FROM valuet WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
   if [ "x$MYSQL" != "x" ]; then
     if [ "$PLAY" == "play" ]; then
       echo -n "Adding: "

@@ -4,13 +4,13 @@ DROP DATABASE IF EXISTS music;
 CREATE DATABASE music;
 USE music;
 
-CREATE TABLE value (
+CREATE TABLE valuet (
   id         SERIAL       NOT NULL,
-  value      VARCHAR(255) NOT NULL,
-UNIQUE INDEX(value(160))
+  valuet     VARCHAR(255) NOT NULL,
+UNIQUE INDEX(valuet(160))
 );
 
-CREATE INDEX value_id_index ON value(id);
+CREATE INDEX value_id_index ON valuet(id);
 
 CREATE TABLE album (
   id         SERIAL          NOT NULL,                  -- unique identifier
@@ -58,7 +58,8 @@ CREATE PROCEDURE album_id(IN d TEXT, IN a TEXT, IN r TEXT, IN s BOOL, OUT aid IN
       -- SELECT LAST_INSERT_ID() INTO aid FROM album;   -- fetch the id for the new album
       SELECT id INTO aid FROM album where directory=d;  -- fetch the id for the new album
     END IF;
-  END|
+  END;
+|
 
 CREATE PROCEDURE delete_album(IN d TEXT)
   BEGIN
@@ -71,7 +72,8 @@ CREATE PROCEDURE delete_album(IN d TEXT)
       DELETE FROM track WHERE id=aid;
       DELETE FROM album WHERE id=aid;
     END IF;
-  END|
+  END;
+|
 
 CREATE PROCEDURE one_track(
   IN  ai BIGINT UNSIGNED,
@@ -92,17 +94,19 @@ CREATE PROCEDURE one_track(
 
     INSERT INTO track
      SET id=ai, number=tn, seconds=sc, file=fl, artist=@aid, title=@tid, intro=it, outro=ot, setname=@sid, comments=co;
-  END|
+  END;
+|
 
 CREATE PROCEDURE value_id(IN v TEXT, OUT vid INT UNSIGNED)
   BEGIN
-    SELECT id INTO vid FROM value WHERE value=v;      -- get any existing identifier for the value
+    SELECT id INTO vid FROM valuet WHERE valuet = v;   -- get any existing identifier for the value
 
-    IF vid IS NULL THEN                               -- looks like there wasn't one
-      INSERT INTO value SET value=v;                  -- make a new value table entry
-      -- SELECT LAST_INSERT_ID() INTO vid FROM value; -- grab the identifier for the new entry
-      SELECT id INTO vid FROM value where value=v;    -- grab the identifier for the new entry
+    IF vid IS NULL THEN                                -- looks like there wasn't one
+      INSERT INTO valuet SET valuet = v;               -- make a new value table entry
+      -- SELECT LAST_INSERT_ID() INTO vid FROM value;  -- grab the identifier for the new entry
+      SELECT id INTO vid FROM valuet where valuet = v; -- grab the identifier for the new entry
     END IF;
-  END|
+  END;
+|
 
 DELIMITER ;

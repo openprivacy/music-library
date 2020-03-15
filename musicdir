@@ -227,7 +227,7 @@ for ($i = 1; $i < $argc; $i++) {
 
               // to handle e.g.: /imagine/flac/jon/The_Grateful_Dead/1985-06-21/z
               if (count($fields) < ($f + 3))
-                continue;
+                continue 2;
 
               switch ($fields[$f + 2]) {
                 case 'defect':
@@ -343,12 +343,12 @@ for ($i = 1; $i < $argc; $i++) {
 function value_id($mysqli, $value) {
   $value = $mysqli->real_escape_string($value);
   // get any existing identifier for the value
-  $sql = "SELECT id FROM value WHERE value = '$value'";
+  $sql = "SELECT id FROM valuet WHERE valuet = '$value'";
   $result = $mysqli->query($sql) or die($mysqli->error);
   if ($mysqli->affected_rows == 0) {
-    $sql = "INSERT INTO value SET value = '$value'";
+    $sql = "INSERT INTO valuet SET valuet = '$value'";
     $result = $mysqli->query($sql) or die($mysqli->error);
-    $sql = "SELECT id FROM value WHERE value = '$value'";
+    $sql = "SELECT id FROM valuet WHERE valuet = '$value'";
     $result = $mysqli->query($sql) or die($mysqli->error);
   }
   $row = $result->fetch_assoc();
