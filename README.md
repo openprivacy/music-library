@@ -49,3 +49,9 @@ showoftheday
   * walk the music folder and update entries when added/deleted
   * suck in all directories (not just dates) and comments, too
 * Stream `showoftheday` to an Android (or even securely to my laptop when not at home)
+
+## License
+
+GNU General Public License v3.0 or later.
+
+SPDX-License-Identifier: `GPL-3.0-or-later`
