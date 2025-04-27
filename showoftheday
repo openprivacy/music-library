@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # @file Simple-minded script to display shows from this date (in other years)
 #       and/or optionally add them to the current play list and start playing.
@@ -7,83 +7,73 @@
 # @todo Accumulate and display total length of shows
 # @see  For arguments help, try: `showoftheday help`
 
-LAST=`audtool playqueue-length`
-NEXT=$((LAST + 1))
 NAME=`basename $0`
-PLAY=$1
-DATE=$2
-SHOW=0
+DATE=$1
+PLAY=$2
 
-if [ $NAME = "deadoftheday" ]; then
-  PREFIX='The_Grateful_Dead/'
-else
-  PREFIX=''
+if [ "$DATE" == '-h' ] || [ "$DATE" == 'help' ]; then
+    echo "With no args,          display shows from today's date (in other years)."
+    echo "With arg 'mm-dd',      display shows played on that date"
+    echo "With last arg 'play',  append shows from the given date to rhythmbox."
+    exit
 fi
 
-if [ "$PLAY" == '-h' ] || [ "$PLAY" == 'help' ]; then
-  echo "With no args,          display shows from today's date (in other years)."
-  echo "With first arg 'show', display shows and tracks"
-  echo "With first arg 'play', append shows from today's date to playlist"
-  echo "                       and jump to the first newly added track."
-  echo "With last arg 'mm-dd', either display or append shows from that date."
-  exit;
+QUEUE=0
+if [ "x$DATE" == "x" ] || [ "$DATE" == "play" ]; then
+    if [ "$DATE" == "play" ]; then
+        QUEUE=1
+    fi
+    DATE=`date +"%m-%d"`
+fi
+if [ "$PLAY" == "play" ]; then
+    QUEUE=1
+fi
+
+if [ $NAME = "deadoftheday" ]; then
+    PREFIX='The_Grateful_Dead/'
+else
+    PREFIX=''
 fi
 
 DATABASE="mariadb"
 assert_database() {
-  [ "$( systemctl is-active ${DATABASE} )" == "inactive" ] && sudo systemctl start ${DATABASE}
+    [ "$( systemctl is-active ${DATABASE} )" == "inactive" ] && sudo systemctl start ${DATABASE}
 }
 
-MOUNTDIR=${MOUNTDIR-/imagine/music}
+MOUNTDIR=${MOUNTDIR-/cycles/flac}
 assert_mountdir() {
   [ $( mountpoint ${MOUNTDIR} > /dev/null ) ] || mount ${MOUNTDIR}
 }
 
 assert_database
-assert_mountdir
+#assert_mountdir
 
-if [ "$PLAY" != "play" ]; then
-  if [ "$PLAY" == "show" ]; then
-    SHOW=1
-    PLAY=0;
-  else
-    DATE=$PLAY
-    PLAY=0
-  fi
+
+FILES=$(mysql music -B -N -e "SELECT filepath FROM songs WHERE filepath LIKE '%/${PREFIX}____-${DATE}%' ORDER BY filepath ASC")
+
+COUNT=0
+ADDING=''
+if [ "$QUEUE" == "1" ]; then
+    rhythmbox-client --clear-queue
 fi
+LASTDIR=''
 
-if [ "x$DATE" == "x" ]; then
-  DATE=`date +"%m-%d"`
-fi
-
-DIRS=`mysql music -B -N -e "SELECT directory FROM album WHERE directory LIKE '%/${PREFIX}____-${DATE}%' ORDER BY directory ASC"`
-COUNT=$( wc -l <<< "${DIRS}" )
-
-LASTART=''
-for i in $DIRS; do
-  DIRNAME="$( dirname $i )"
-  ARTIST="$( basename $DIRNAME )"
-  if [ "$LASTART" != "$ARTIST" ]; then
-    echo ""
-    echo $ARTIST
-    LASTART="$ARTIST"
-  fi
-  MYSQL=`mysql music -B -N -e "SELECT valuet FROM valuet WHERE id = (SELECT album FROM album WHERE directory = '$i')"`
-  if [ "x$MYSQL" != "x" ]; then
-    if [ "$PLAY" == "play" ]; then
-      echo -n "Adding: "
-      audtool playlist-addurl $i
+for i in $FILES; do
+    THISDIR="$( dirname $i )"
+    SHORT="${THISDIR:13}"
+    if [ "$THISDIR" != "$LASTDIR" ]; then
+	    LASTDIR=$THISDIR
+	    echo "${ADDING}${SHORT}"
+	    (( COUNT++ ))
     fi
-    echo $MYSQL;
-  fi
-  if [ $SHOW -ne 0 ]; then
-    ls $i
-  fi
+    if [ "$QUEUE" == "1" ]; then
+	rhythmbox-client --enqueue $i
+    fi
 done
-echo ""
-echo "$COUNT concerts played today!"
 
-if [ "$PLAY" != "0" ]; then
-  audtool playlist-jump "$NEXT"
-  audtool playback-play
+echo ""
+echo "$COUNT concerts played on this day in history ($DATE)!"
+
+if [ "$QUEUE" == "1" ]; then
+    rhythmbox-client --play
 fi

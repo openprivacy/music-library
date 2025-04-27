@@ -1,0 +1,12 @@
+[project]
+name = "music-library"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mutagen>=1.47.0",
+    "mysql>=0.0.3",
+    "mysql-connector>=2.2.9",
+    "mysql-connector-python>=9.3.0",
+]
