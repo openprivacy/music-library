@@ -3,17 +3,11 @@ These aren't pretty, but they work and perhaps they may give you some ideas (and
 
 ## Installation
 
-### Prerequisistes
-*This list is likely not complete*
-```
-pacaur -S flac libid3 mysql audacious
-```
-
 ### Install files
 ```
 cd ~/workspace
 git clone git@github.com:openprivacy/music-library.git .
-ln -s ~/workspace/music-library/showoftheday ~/bin
+ln -s ~/workspace/music-library/showoftheday.py ~/bin/showoftheday
 ln -s ~/bin/showoftheday ~/bin/deadoftheday
 ```
 

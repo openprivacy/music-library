@@ -56,6 +56,9 @@ def extract_metadata(file_path):
         year = (audio.get('date') or audio.get('DATE') or [''])[0]
         genre = (audio.get('genre') or audio.get('GENRE') or [''])[0]
 
+        if len(str) > 10:
+            str = str[:10]
+
         return {
             'artist': artist,
             'title': title,
