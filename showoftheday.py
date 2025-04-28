@@ -7,7 +7,7 @@ optionally add them to the current playlist and start playing.
 If run as 'deadoftheday', restricts search to The_Grateful_Dead.
 """
 
-import os
+import re
 import sys
 import subprocess
 import argparse
@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Constants
-COLUMN_WIDTHS = {'date': 12, 'artist': 40, 'album': 60}
+COLUMN_WIDTHS = {'date': 10, 'artist': 40, 'album': 60}
 DATABASE_SERVICE = "mariadb"
 MUSIC_DB = "music"
 MOUNTDIR_DEFAULT = "/cycles/flac"
@@ -77,9 +77,11 @@ def enqueue_and_play(songs, queue=False, auto_play=False):
         if thisdir != lastdir:
             lastdir = thisdir
             date_formatted = extract_date_from_filepath(filepath)
+            if re.search(r'^\d\d\d\d.\d\d.\d\d', album):
+                album = album[11:]
             print(
-                format_field(date_formatted, COLUMN_WIDTHS['date']) +
-                format_field(artist, COLUMN_WIDTHS['artist']) +
+                format_field(date_formatted, COLUMN_WIDTHS['date']) + '  ' +
+                format_field(artist, COLUMN_WIDTHS['artist']) + '  ' +
                 format_field(album, COLUMN_WIDTHS['album'])
             )
             count += 1
@@ -107,8 +109,8 @@ def extract_date_from_filepath(filepath):
 
 
 def print_header():
-    headers = ['Date', 'Artist', 'Album']
-    line = ''.join(format_field(header, COLUMN_WIDTHS[field.lower()]) for field, header in zip(COLUMN_WIDTHS.keys(), headers))
+    headers = ['Date', 'Artist', 'Concert']
+    line = '  '.join(format_field(header, COLUMN_WIDTHS[field.lower()]) for field, header in zip(COLUMN_WIDTHS.keys(), headers))
     print(line)
     print('-' * len(line))
 
