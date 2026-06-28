@@ -1,60 +1,204 @@
-# Music Library Scripts
-These aren't pretty, but they work and perhaps they may give you some ideas (and Pull Requests welcome!)
+# music-library
 
-## Installation
-
-### Install files
-```
-cd ~/workspace
-git clone git@github.com:openprivacy/music-library.git .
-ln -s ~/workspace/music-library/showoftheday.py ~/bin/showoftheday
-ln -s ~/bin/showoftheday ~/bin/deadoftheday
-```
-
-### Create music database
-```
-mysql < init.sql
-```
-
-#### Initialize the database
+A self-hosted concert recording index for FLAC soundboards on a Linux server,
+queryable from a Mac CLI.
 
 ```
-uv run musicdir.py /imagine/flac
+music-library/
+├── server/
+│   ├── docker-compose.yml   # MySQL 8 container
+│   ├── init.sql             # Schema (auto-applied on first start)
+│   └── musicdir_index.py    # Server-side indexer / nightly cron job
+└── client/
+    └── showoftheday.py      # macOS CLI: query by date or recency → M3U
 ```
 
-#### Configure showoftheday
-I samba mount my music directory to my workstation. `MUSICDIR` defaults to `/imagine/flac` and will be mounted if not available. You can skip the mount operation by testing for an already mounted partition, e.g.:
-```
-export MOUNTDIR=/boot
-showoftheday
-```
+---
 
-### To run
-* Run `showoftheday` to see all shows from this day in history
-* Run `showoftheday 12-31` to see all New Years Eve shows
-* Run `deadoftheday` to restrict the listing to `The_Grateful_Dead`
-* Run `showoftheday play` to send the show listings to `rhythmbox`
+## 1 · Server setup (XUbuntu)
 
-## Plans for the future
-* Update `musicdir` to:
-  * walk the music folder and update entries when added/deleted
-  * suck in all directories (not just dates) and comments, too
-* Stream `showoftheday` to an Android (or even securely to my laptop when not at home)
+### 1a. Install Docker
 
-# Initialize the database
-```
-docker build -t music-mysql .
-FLACDIR=/usb/distrib/jon
-docker run -d -p 3306:3306 --name mysql-container -v $FLACDIR:/flac music-mysql
-
-docker run --name music-mysql -e MYSQL_ROOT_PASSWORD=root -d mysql:latest
-
-docker run -it --network some-network --rm mysql mysql -music-mysql -uroot -p
-
+```bash
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+sudo usermod -aG docker $USER   # log out and back in
 ```
 
-## License
+### 1b. Start the MySQL container
 
-GNU General Public License v3.0 or later.
+```bash
+cd music-library/server
 
-SPDX-License-Identifier: `GPL-3.0-or-later`
+# Optional: set stronger passwords
+export MYSQL_ROOT_PASSWORD=supersecret
+export MYSQL_PASSWORD=mypassword
+
+docker compose up -d
+# MySQL is now reachable at 127.0.0.1:3306 on the server.
+```
+
+The `init.sql` schema is applied automatically on first start.
+
+### 1c. Install Python dependencies (server)
+
+```bash
+pip3 install mysql-connector-python
+```
+
+### 1d. Run the initial full index
+
+```bash
+cd music-library/server
+
+MUSIC_DB_PASSWORD=mypassword \
+python3 musicdir_index.py --root /imagine/flac --full --verbose
+```
+
+This walk takes a minute or two for large libraries (tens of thousands of files).
+Subsequent runs are incremental – only new or changed files are touched.
+
+### 1e. Schedule nightly incremental updates
+
+```bash
+# Open crontab
+crontab -e
+
+# Add (runs at 02:00 every night):
+0 2 * * * MUSIC_DB_PASSWORD=mypassword \
+  /usr/bin/python3 /home/youruser/music-library/server/musicdir_index.py \
+  --root /imagine/flac >> /var/log/musicdir_index.log 2>&1
+```
+
+---
+
+## 2 · macOS client setup
+
+### 2a. Mount the Samba share
+
+In Finder: **Go → Connect to Server** → `smb://<server-ip>/imagine`
+(or add it to Login Items so it mounts on login.)
+
+The default mount point is `/Volumes/imagine`.
+
+### 2b. Open MySQL port via SSH tunnel (recommended)
+
+Rather than exposing port 3306 to the LAN, use an SSH tunnel on your Mac:
+
+```bash
+# Add to ~/.ssh/config on your Mac:
+Host music-server
+    HostName <server-ip>
+    User     <your-linux-user>
+    LocalForward 3306 127.0.0.1:3306
+
+# Then connect once:
+ssh -fN music-server
+```
+
+Now `127.0.0.1:3306` on your Mac connects to the server's MySQL.
+
+Alternatively, change `127.0.0.1:3306:3306` in `docker-compose.yml` to
+`0.0.0.0:3306:3306` and open port 3306 in your firewall for LAN-only access.
+
+### 2c. Install Python dependencies (Mac)
+
+```bash
+pip3 install mysql-connector-python
+```
+
+### 2d. Install a music player
+
+**Swinsian** (recommended – $34.95, 30-day free trial)
+<https://swinsian.com>
+
+FLAC-native, M3U import, smart playlists, Apple Silicon. When the script opens
+an M3U file, Swinsian loads it as a playlist automatically.
+
+**Free alternatives:** IINA, VLC (both open M3U playlists fine).
+
+---
+
+## 3 · Using the CLI
+
+```bash
+cd music-library/client
+
+# Shows on June 13 in any year – pick one interactively:
+python3 showoftheday.py --date 06-13
+
+# Shows added in the last 7 days:
+python3 showoftheday.py --recent 7
+
+# Recently added, grouped by show for selection:
+python3 showoftheday.py --recent 7 --by-show
+
+# Use a different mount point or player:
+python3 showoftheday.py --date 06-13 \
+    --mount /Volumes/music \
+    --player /Applications/VLC.app
+
+# Just print the M3U to stdout (pipe it, redirect it, etc.):
+python3 showoftheday.py --date 06-13 --print
+```
+
+### Environment variables
+
+Set these in your shell profile (`~/.zshrc` or `~/.bash_profile`) to avoid
+repeating flags:
+
+```bash
+export MUSIC_DB_HOST=127.0.0.1    # or server IP if not using SSH tunnel
+export MUSIC_DB_PORT=3306
+export MUSIC_DB_USER=music
+export MUSIC_DB_PASSWORD=mypassword
+export MUSIC_DB_NAME=music
+export MUSIC_MOUNT=/Volumes/imagine
+export MUSIC_PLAYER="/Applications/Swinsian.app"
+```
+
+---
+
+## 4 · File layout assumed
+
+```
+/imagine/flac/
+  Grateful_Dead/
+    1977-05-08/
+      01-Bertha.flac
+      02-Good_Lovin.flac
+      ...
+  Phish/
+    1997-11-17/
+      01-Wolfman_s_Brother.flac
+      ...
+```
+
+- Band directories may use underscores or spaces (both work).
+- Date directories must be `yyyy-mm-dd`.
+- Track files must end in `.flac`; the leading `##` and `##-` prefix is
+  optional but encouraged for ordering.
+
+---
+
+## 5 · Schema overview
+
+| Table    | Purpose                                       |
+|----------|-----------------------------------------------|
+| `shows`  | One row per `Band/yyyy-mm-dd` directory       |
+| `tracks` | One row per `.flac` file                      |
+| `v_tracks` | Convenience view joining both tables        |
+
+Useful ad-hoc queries:
+
+```sql
+-- All Grateful Dead shows in May:
+SELECT band, show_date, dir_path
+FROM shows
+WHERE band = 'Grateful Dead' AND MONTH(show_date) = 5;
+
+-- Tracks added this week:
+SELECT file_path, file_mtime
+FROM tracks
+WHERE updated_at >= NOW() - INTERVAL 7 DAY
+ORDER BY updated_at DESC;
+```

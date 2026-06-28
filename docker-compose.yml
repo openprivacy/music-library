@@ -1,0 +1,27 @@
+version: "3.9"
+
+# Music library database stack.
+# Run from this directory:  docker compose up -d
+# Stop:                     docker compose down
+# Wipe data:                docker compose down -v
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: music_library_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: music
+      MYSQL_USER: music
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-musicpass}
+    ports:
+      # Bind only to localhost so the port is not exposed to the wider LAN.
+      # Change to "0.0.0.0:3306:3306" if you want LAN access without SSH.
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  db_data:
