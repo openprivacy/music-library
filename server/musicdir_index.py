@@ -67,7 +67,7 @@ DB_CONFIG = {
 }
 
 # Regex patterns for the expected directory/file layout.
-_DATE_RE  = re.compile(r"^\d{4}-\d{2}-\d{2}$")          # yyyy-mm-dd
+_DATE_RE  = re.compile(r"^\d{4}-\d{2}-\d{2}\w*$")          # yyyy-mm-dd
 _TRACK_RE = re.compile(r"^(\d+)[_\-\s](.+)\.flac$", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
@@ -220,7 +220,7 @@ def scan_library(
                 continue
 
             try:
-                show_date = datetime.strptime(date_dir.name, "%Y-%m-%d")
+                show_date = datetime.strptime(date_dir.name[:10], "%Y-%m-%d")
             except ValueError:
                 log.warning("Unexpected date format: %s – skipped", date_dir)
                 continue
