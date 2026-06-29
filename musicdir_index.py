@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "mysql-connector-python",
+# ]
+# ///
+
 """
 musicdir_index.py – Server-side music library indexer
 ======================================================

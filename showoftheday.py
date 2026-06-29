@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "mysql-connector-python",
+# ]
+# ///
+
 """
 showoftheday.py – macOS CLI for the remote music library
 =========================================================
