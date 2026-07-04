@@ -54,6 +54,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
@@ -112,7 +113,7 @@ def shows_by_month_day(cursor, month_day: str) -> list[Show]:
     month, day = month_day.split("-")
     cursor.execute(
         """
-        SELECT id, band, DATE_FORMAT(show_date, '%%Y-%%m-%%d'), dir_path, file_count
+        SELECT id, band, CAST(show_date AS CHAR), dir_path, file_count
         FROM shows
         WHERE MONTH(show_date) = %s
           AND DAY(show_date)   = %s
@@ -130,7 +131,7 @@ def shows_updated_recently(cursor, days: int) -> list[Show]:
     cursor.execute(
         """
         SELECT DISTINCT s.id, s.band,
-               DATE_FORMAT(s.show_date, '%%Y-%%m-%%d'),
+               CAST(s.show_date AS CHAR),
                s.dir_path, s.file_count
         FROM shows s
         JOIN tracks t ON t.show_id = s.id
@@ -402,11 +403,11 @@ def parse_args() -> argparse.Namespace:
         description="Query the music library database and build a playlist."
     )
 
-    mode = parser.add_mutually_exclusive_group(required=True)
+    mode = parser.add_mutually_exclusive_group(required=False)
     mode.add_argument(
         "--date",
         metavar="MM-DD",
-        help="Show all concerts recorded on this month/day (any year)",
+        help="Show all concerts recorded on this month/day (any year); defaults to today's MM-DD",
     )
     mode.add_argument(
         "--recent",
@@ -441,6 +442,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+
+    # Default to today's MM-DD if neither --date nor --recent was given.
+    if args.date is None and args.recent is None:
+        args.date = date.today().strftime("%m-%d")
 
     try:
         conn = connect()
