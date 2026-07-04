@@ -68,10 +68,10 @@ DB_CONFIG = {
 
 # Regex patterns for the expected directory/file layout.
 _DATE_RE  = re.compile(r"^\d{4}-\d{2}-\d{2}\w*$")          # yyyy-mm-dd
-# Matches both standard and extended prefixes:
-#   Standard:  ##-Song_Name.flac
-#   Extended:  yyyy-mm-dd.t##.Song_Name.flac  (e.g. Iggy_Pop/1991-07-12)
-_TRACK_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\.t)?(\d+)[_\-.\s](.+)\.flac$", re.IGNORECASE)
+# Extended prefix: yyyy-mm-dd[.]tNN[sep+title].flac  (e.g. Iggy_Pop, Kathleen_Edwards)
+_TRACK_EXT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\.?t(\d+)(?:[_\-.\s](.+))?\.flac$", re.IGNORECASE)
+# Standard: NN[sep]Song_Name.flac
+_TRACK_RE     = re.compile(r"^(\d+)[_\-.\s](.+)\.flac$", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 
@@ -151,19 +151,24 @@ def parse_track_filename(filename: str) -> tuple[int | None, str]:
 
     Examples
     --------
-    "01-Dark_Star.flac"              →  (1, "Dark Star")
-    "12 - Help On The Way.flac"      →  (12, "Help On The Way")
+    "01-Dark_Star.flac"                  →  (1, "Dark Star")
+    "12 - Help On The Way.flac"          →  (12, "Help On The Way")
     "1991-07-12.t03.Lust_For_Life.flac"  →  (3, "Lust For Life")
-    "Drums.flac"                     →  (None, "Drums")
+    "2002-12-06t08.flac"                 →  (8, "2002-12-06t08")
+    "Drums.flac"                         →  (None, "Drums")
     """
-    m = _TRACK_RE.match(filename)
+    m = _TRACK_EXT_RE.match(filename)
     if m:
         track_num = int(m.group(1))
-        raw_title = m.group(2)
+        raw_title = m.group(2) or Path(filename).stem
     else:
-        # No leading number – strip just the extension.
-        track_num = None
-        raw_title = Path(filename).stem
+        m = _TRACK_RE.match(filename)
+        if m:
+            track_num = int(m.group(1))
+            raw_title = m.group(2)
+        else:
+            track_num = None
+            raw_title = Path(filename).stem
 
     # Replace underscores and collapse whitespace.
     title = raw_title.replace("_", " ").strip()
