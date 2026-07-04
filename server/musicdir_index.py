@@ -70,8 +70,8 @@ DB_CONFIG = {
 _DATE_RE  = re.compile(r"^\d{4}-\d{2}-\d{2}\w*$")          # yyyy-mm-dd
 # Matches both standard and extended prefixes:
 #   Standard:  ##-Song_Name.flac
-#   Extended:  yyyy-mm-dd.t##-Song_Name.flac  (e.g. Iggy_Pop/1991-07-12)
-_TRACK_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\.t)?(\d+)[_\-\s](.+)\.flac$", re.IGNORECASE)
+#   Extended:  yyyy-mm-dd.t##.Song_Name.flac  (e.g. Iggy_Pop/1991-07-12)
+_TRACK_RE = re.compile(r"^(?:\d{4}-\d{2}-\d{2}\.t)?(\d+)[_\-.\s](.+)\.flac$", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ def parse_track_filename(filename: str) -> tuple[int | None, str]:
     --------
     "01-Dark_Star.flac"              →  (1, "Dark Star")
     "12 - Help On The Way.flac"      →  (12, "Help On The Way")
-    "1991-07-12.t03-Lust_For_Life.flac"  →  (3, "Lust For Life")
+    "1991-07-12.t03.Lust_For_Life.flac"  →  (3, "Lust For Life")
     "Drums.flac"                     →  (None, "Drums")
     """
     m = _TRACK_RE.match(filename)
