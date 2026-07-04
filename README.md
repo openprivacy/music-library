@@ -42,7 +42,7 @@ The `init.sql` schema is applied automatically on first start.
 ### 1c. Install Python dependencies (server)
 
 ```bash
-pip3 install mysql-connector-python
+uv pip install mysql-connector-python
 ```
 
 ### 1d. Run the initial full index
@@ -51,7 +51,7 @@ pip3 install mysql-connector-python
 cd music-library/server
 
 MUSIC_DB_PASSWORD=mypassword \
-python3 musicdir_index.py --root /imagine/flac --full --verbose
+uv run musicdir_index.py --root /imagine/flac --full --verbose
 ```
 
 This walk takes a minute or two for large libraries (tens of thousands of files).
@@ -103,7 +103,7 @@ Alternatively, change `127.0.0.1:3306:3306` in `docker-compose.yml` to
 ### 2c. Install Python dependencies (Mac)
 
 ```bash
-pip3 install mysql-connector-python
+uv pip install mysql-connector-python
 ```
 
 ### 2d. Install a music player
@@ -123,11 +123,14 @@ an M3U file, Swinsian loads it as a playlist automatically.
 ```bash
 cd music-library/client
 
+# Shows performed on today's date in previous years:
+uv run showoftheday.py
+
 # Shows on June 13 in any year – pick one interactively:
-python3 showoftheday.py --date 06-13
+uv run showoftheday.py --date 06-13
 
 # Shows added in the last 7 days:
-python3 showoftheday.py --recent 7
+uv run showoftheday.py --recent 7
 
 # Recently added, grouped by show for selection:
 python3 showoftheday.py --recent 7 --by-show

@@ -135,8 +135,8 @@ def shows_updated_recently(cursor, days: int) -> list[Show]:
                s.dir_path, s.file_count
         FROM shows s
         JOIN tracks t ON t.show_id = s.id
-        WHERE t.updated_at >= NOW() - INTERVAL %s DAY
-        ORDER BY t.updated_at DESC, s.band
+        WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
+        ORDER BY t.file_mtime DESC, s.band
         """,
         (days,),
     )
@@ -163,8 +163,8 @@ def tracks_updated_recently(cursor, days: int) -> list[Track]:
         """
         SELECT id, track_num, title, file_path
         FROM tracks
-        WHERE updated_at >= NOW() - INTERVAL %s DAY
-        ORDER BY updated_at DESC, file_path
+        WHERE file_mtime >= NOW() - INTERVAL %s DAY
+        ORDER BY file_mtime DESC, file_path
         """,
         (days,),
     )
