@@ -130,13 +130,14 @@ def shows_updated_recently(cursor, days: int) -> list[Show]:
     """
     cursor.execute(
         """
-        SELECT DISTINCT s.id, s.band,
+        SELECT s.id, s.band,
                CAST(s.show_date AS CHAR),
                s.dir_path, s.file_count
         FROM shows s
         JOIN tracks t ON t.show_id = s.id
         WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
-        ORDER BY t.file_mtime DESC, s.band
+        GROUP BY s.id, s.band, s.show_date, s.dir_path, s.file_count
+        ORDER BY MAX(t.file_mtime) DESC, s.band
         """,
         (days,),
     )
