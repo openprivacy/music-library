@@ -252,7 +252,7 @@ def scan_library(
                 file_count=len(flac_files),
             )
             stats["shows_upserted"] += 1
-            log.info("Show: %s  (%d tracks)", dir_path, len(flac_files))
+            log.debug("Show: %s  (%d tracks)", dir_path, len(flac_files))
 
             for flac_file in flac_files:
                 rel_path = str(
@@ -280,8 +280,7 @@ def scan_library(
                     file_mtime=file_mtime,
                 )
                 stats["tracks_upserted"] += 1
-                if verbose:
-                    log.debug("Indexed: %s", rel_path)
+                log.info("Indexed: %s", rel_path)
 
         conn.commit()
 
