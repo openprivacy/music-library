@@ -97,6 +97,26 @@ class Track(NamedTuple):
 
 
 # ---------------------------------------------------------------------------
+# Band filter helpers
+# ---------------------------------------------------------------------------
+
+DEAD_FILE = Path(__file__).parent / "dead.txt"
+DEAD_DEFAULT = ["The Grateful Dead"]
+
+
+def load_dead_bands() -> list[str]:
+    """
+    Read band names from dead.txt (one per line, underscores allowed).
+    Returns names with underscores replaced by spaces to match the DB.
+    Falls back to DEAD_DEFAULT if the file does not exist.
+    """
+    if DEAD_FILE.exists():
+        names = [ln.strip() for ln in DEAD_FILE.read_text().splitlines() if ln.strip()]
+        return [n.replace("_", " ") for n in names]
+    return list(DEAD_DEFAULT)
+
+
+# ---------------------------------------------------------------------------
 # Database queries
 # ---------------------------------------------------------------------------
 
@@ -104,42 +124,58 @@ def connect() -> mysql.connector.MySQLConnection:
     return mysql.connector.connect(**DB_CONFIG)
 
 
-def shows_by_month_day(cursor, month_day: str) -> list[Show]:
+def shows_by_month_day(cursor, month_day: str, bands: list[str] | None = None) -> list[Show]:
     """
     Return all shows whose date matches MM-DD (any year), sorted by date then band.
 
     *month_day* must be in the format ``MM-DD`` (e.g. ``"06-13"``).
+    If *bands* is provided, only shows from those bands are returned.
     """
     month, day = month_day.split("-")
+    band_filter = ""
+    params: tuple = (int(month), int(day))
+    if bands:
+        placeholders = ", ".join(["%s"] * len(bands))
+        band_filter = f"AND band IN ({placeholders})"
+        params = (int(month), int(day), *bands)
     cursor.execute(
-        """
+        f"""
         SELECT id, band, CAST(show_date AS CHAR), dir_path, file_count
         FROM shows
         WHERE MONTH(show_date) = %s
           AND DAY(show_date)   = %s
+          {band_filter}
         ORDER BY show_date, band
         """,
-        (int(month), int(day)),
+        params,
     )
     return [Show(*row) for row in cursor.fetchall()]
 
 
-def shows_updated_recently(cursor, days: int) -> list[Show]:
+def shows_updated_recently(cursor, days: int, bands: list[str] | None = None) -> list[Show]:
     """
     Return shows that have had tracks added or changed in the last *days* days.
+    If *bands* is provided, only shows from those bands are returned.
     """
+    band_filter = ""
+    params: tuple = (days,)
+    if bands:
+        placeholders = ", ".join(["%s"] * len(bands))
+        band_filter = f"AND s.band IN ({placeholders})"
+        params = (days, *bands)
     cursor.execute(
-        """
+        f"""
         SELECT s.id, s.band,
                CAST(s.show_date AS CHAR),
                s.dir_path, s.file_count
         FROM shows s
         JOIN tracks t ON t.show_id = s.id
         WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
+          {band_filter}
         GROUP BY s.id, s.band, s.show_date, s.dir_path, s.file_count
         ORDER BY MAX(t.file_mtime) DESC, s.band
         """,
-        (days,),
+        params,
     )
     return [Show(*row) for row in cursor.fetchall()]
 
@@ -158,16 +194,24 @@ def tracks_for_show(cursor, show_id: int) -> list[Track]:
     return [Track(*row) for row in cursor.fetchall()]
 
 
-def tracks_updated_recently(cursor, days: int) -> list[Track]:
+def tracks_updated_recently(cursor, days: int, bands: list[str] | None = None) -> list[Track]:
     """Return all tracks updated in the last *days* days, newest first."""
+    band_filter = ""
+    params: tuple = (days,)
+    if bands:
+        placeholders = ", ".join(["%s"] * len(bands))
+        band_filter = f"AND s.band IN ({placeholders})"
+        params = (days, *bands)
     cursor.execute(
-        """
-        SELECT id, track_num, title, file_path
-        FROM tracks
-        WHERE file_mtime >= NOW() - INTERVAL %s DAY
-        ORDER BY file_mtime DESC, file_path
+        f"""
+        SELECT t.id, t.track_num, t.title, t.file_path
+        FROM tracks t
+        JOIN shows s ON s.id = t.show_id
+        WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
+          {band_filter}
+        ORDER BY t.file_mtime DESC, t.file_path
         """,
-        (days,),
+        params,
     )
     return [Track(*row) for row in cursor.fetchall()]
 
@@ -293,8 +337,21 @@ def write_m3u_temp(content: str) -> Path:
     return Path(path)
 
 
-def open_in_player(m3u_path: Path, player: str) -> None:
-    """Open the M3U file with the specified macOS application."""
+def clear_player_playlist(player: str) -> None:
+    """Best-effort AppleScript call to clear the player's current playlist."""
+    app_name = Path(player).stem
+    script = (
+        f'tell application "{app_name}"\n'
+        '  delete every playlist item of playlist 1\n'
+        'end tell'
+    )
+    subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
+
+
+def open_in_player(m3u_path: Path, player: str, save: bool = False) -> None:
+    """Clear the player's playlist (unless --save), then open the M3U."""
+    if not save:
+        clear_player_playlist(player)
     subprocess.run(["open", "-a", player, str(m3u_path)], check=False)
 
 
@@ -308,9 +365,11 @@ def run_date_mode(
     mount: str,
     player: str,
     print_only: bool,
+    save: bool,
+    bands: list[str] | None = None,
 ) -> None:
     """Interactive show-of-the-day flow."""
-    shows = shows_by_month_day(cursor, month_day)
+    shows = shows_by_month_day(cursor, month_day, bands)
     if not shows:
         print(f"No shows found for {month_day}.")
         return
@@ -329,7 +388,7 @@ def run_date_mode(
         all_tracks_for_show = tracks_for_show(cursor, chosen.show_id)
         selected_tracks = choose_tracks(all_tracks_for_show, chosen)
 
-    _output(selected_tracks, mount, player, print_only)
+    _output(selected_tracks, mount, player, print_only, save)
 
 
 # ---------------------------------------------------------------------------
@@ -342,11 +401,19 @@ def run_recent_mode(
     mount: str,
     player: str,
     print_only: bool,
-    by_show: bool,
+    all_tracks: bool,
+    save: bool,
+    bands: list[str] | None = None,
 ) -> None:
     """List recently added/changed content."""
-    if by_show:
-        shows = shows_updated_recently(cursor, days)
+    if all_tracks:
+        tracks = tracks_updated_recently(cursor, days, bands)
+        if not tracks:
+            print(f"No tracks updated in the last {days} day(s).")
+            return
+        print(f"\nFound {len(tracks)} track(s) updated in the last {days} day(s).")
+    else:
+        shows = shows_updated_recently(cursor, days, bands)
         if not shows:
             print(f"No shows updated in the last {days} day(s).")
             return
@@ -354,19 +421,13 @@ def run_recent_mode(
         if chosen is None:
             return
         if chosen.show_id == -1:
-            tracks: list[Track] = []
+            tracks = []
             for show in shows:
                 tracks.extend(tracks_for_show(cursor, show.show_id))
         else:
             tracks = tracks_for_show(cursor, chosen.show_id)
-    else:
-        tracks = tracks_updated_recently(cursor, days)
-        if not tracks:
-            print(f"No tracks updated in the last {days} day(s).")
-            return
-        print(f"\nFound {len(tracks)} track(s) updated in the last {days} day(s).")
 
-    _output(tracks, mount, player, print_only)
+    _output(tracks, mount, player, print_only, save)
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +439,7 @@ def _output(
     mount: str,
     player: str,
     print_only: bool,
+    save: bool,
 ) -> None:
     if not tracks:
         print("No tracks selected.")
@@ -392,7 +454,7 @@ def _output(
     m3u_path = write_m3u_temp(m3u)
     print(f"\nPlaylist written to: {m3u_path}")
     print(f"Opening with: {player}\n")
-    open_in_player(m3u_path, player)
+    open_in_player(m3u_path, player, save)
 
 
 # ---------------------------------------------------------------------------
@@ -434,9 +496,20 @@ def parse_args() -> argparse.Namespace:
         help="Print the M3U to stdout instead of opening a player",
     )
     parser.add_argument(
-        "--by-show",
+        "--save",
         action="store_true",
-        help="(--recent only) Group recent tracks by show for selection",
+        help="Append to the player's existing playlist instead of clearing it first",
+    )
+    parser.add_argument(
+        "--dead",
+        action="store_true",
+        help="Filter to bands listed in dead.txt (default: Grateful Dead)",
+    )
+    parser.add_argument(
+        "--all",
+        dest="all_tracks",
+        action="store_true",
+        help="(--recent only) List every updated track individually instead of grouping by show",
     )
     return parser.parse_args()
 
@@ -447,6 +520,8 @@ def main() -> None:
     # Default to today's MM-DD if neither --date nor --recent was given.
     if args.date is None and args.recent is None:
         args.date = date.today().strftime("%m-%d")
+
+    bands = load_dead_bands() if args.dead else None
 
     try:
         conn = connect()
@@ -463,6 +538,8 @@ def main() -> None:
                 mount=args.mount,
                 player=args.player,
                 print_only=args.print_only,
+                save=args.save,
+                bands=bands,
             )
         else:
             run_recent_mode(
@@ -471,7 +548,9 @@ def main() -> None:
                 mount=args.mount,
                 player=args.player,
                 print_only=args.print_only,
-                by_show=args.by_show,
+                all_tracks=args.all_tracks,
+                save=args.save,
+                bands=bands,
             )
     finally:
         cursor.close()
