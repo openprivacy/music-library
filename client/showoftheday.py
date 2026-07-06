@@ -54,6 +54,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import date
 from pathlib import Path
 from typing import NamedTuple
@@ -311,21 +312,19 @@ def _parse_track_selection(raw: str, tracks: list[Track]) -> list[Track]:
 # M3U generation
 # ---------------------------------------------------------------------------
 
-def build_m3u(
-    tracks: list[Track],
-    mount: str,
-) -> str:
-    """
-    Build an M3U playlist string from a list of tracks.
+MUSIC_PLAYLIST_NAME = "FlacLibraryList"
 
-    Paths are constructed as: <mount>/flac/<relative_file_path>
+
+def build_m3u(tracks: list[Track], mount: str) -> str:
+    """Build an M3U playlist string.
+
+    Paths are constructed as ``<mount>/<relative_file_path>``.
     """
-    lines = ["#EXTM3U"]
     base = Path(mount)
+    lines = ["#EXTM3U"]
     for t in tracks:
-        abs_path = base / t.file_path
         lines.append(f"#EXTINF:-1,{t.title}")
-        lines.append(str(abs_path))
+        lines.append(str(base / t.file_path))
     return "\n".join(lines) + "\n"
 
 
@@ -337,22 +336,63 @@ def write_m3u_temp(content: str) -> Path:
     return Path(path)
 
 
-def clear_player_playlist(player: str) -> None:
-    """Best-effort AppleScript call to clear the player's current playlist."""
-    app_name = Path(player).stem
-    script = (
-        f'tell application "{app_name}"\n'
-        '  delete every playlist item of playlist 1\n'
-        'end tell'
-    )
-    subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
+def open_in_player(m3u_path: Path, player: str) -> None:
+    """Open the M3U file with the specified macOS application.
 
-
-def open_in_player(m3u_path: Path, player: str, save: bool = False) -> None:
-    """Clear the player's playlist (unless --save), then open the M3U."""
-    if not save:
-        clear_player_playlist(player)
+    For VLC, calls the bundle binary directly with ``--no-playlist-enqueue``
+    so the current playlist is replaced rather than appended to.
+    For all other players, falls back to ``open -a``.
+    """
+    player_path = Path(player)
+    if player_path.stem.lower() == "vlc":
+        bin_path = player_path / "Contents" / "MacOS" / "VLC"
+        if bin_path.exists():
+            # Stop any running VLC so the new playlist replaces it cleanly.
+            subprocess.run(["pkill", "-x", "VLC"],
+                           capture_output=True, check=False)
+            time.sleep(0.3)
+            subprocess.Popen(
+                [str(bin_path), str(m3u_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return
     subprocess.run(["open", "-a", player, str(m3u_path)], check=False)
+
+
+def load_into_music_app(tracks: list[Track], mount: str, save: bool) -> None:
+    """Load *tracks* into Music.app under ``MUSIC_PLAYLIST_NAME``.
+
+    Writes a named ``.m3u`` file and opens it with Music.app.  The
+    file-import handler (Launch Services) creates a playlist whose name
+    matches the file stem, bypassing the Apple Events sandbox issues
+    that prevent programmatic ``add``/``duplicate`` from working.
+
+    When *save* is False the existing playlist is deleted first so the
+    import produces a clean replacement.
+    """
+    if not save:
+        del_script = "\n".join([
+            'tell application "Music"',
+            f'    if (exists user playlist "{MUSIC_PLAYLIST_NAME}") then',
+            f'        delete user playlist "{MUSIC_PLAYLIST_NAME}"',
+            "    end if",
+            "end tell",
+        ])
+        subprocess.run(
+            ["osascript", "-e", del_script],
+            capture_output=True,
+            check=False,
+        )
+
+    # The filename stem becomes the playlist name when Music.app imports it.
+    m3u_path = Path(tempfile.gettempdir()) / f"{MUSIC_PLAYLIST_NAME}.m3u"
+    m3u_path.write_text(build_m3u(tracks, mount), encoding="utf-8")
+
+    subprocess.run(
+        ["open", "-a", "/System/Applications/Music.app", str(m3u_path)],
+        check=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -445,16 +485,19 @@ def _output(
         print("No tracks selected.")
         return
 
-    m3u = build_m3u(tracks, mount)
-
     if print_only:
-        print(m3u)
+        print(build_m3u(tracks, mount))
         return
 
-    m3u_path = write_m3u_temp(m3u)
-    print(f"\nPlaylist written to: {m3u_path}")
-    print(f"Opening with: {player}\n")
-    open_in_player(m3u_path, player, save)
+    print(f"\nOpening with: {player}\n")
+    player_stem = Path(player).stem.lower()
+    if player_stem == "music":
+        print(f'Loading {len(tracks)} track(s) into "{MUSIC_PLAYLIST_NAME}" \u2026')
+        load_into_music_app(tracks, mount, save)
+    else:
+        m3u_path = write_m3u_temp(build_m3u(tracks, mount))
+        print(f"Playlist written to: {m3u_path}")
+        open_in_player(m3u_path, player)
 
 
 # ---------------------------------------------------------------------------

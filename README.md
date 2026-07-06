@@ -132,16 +132,21 @@ uv run showoftheday.py --date 06-13
 # Shows added in the last 7 days:
 uv run showoftheday.py --recent 7
 
-# Recently added, grouped by show for selection:
-python3 showoftheday.py --recent 7 --by-show
+# Recently added, show picker (default); flat track list with --all:
+uv run showoftheday.py --recent 7 --all
+
+# Filter to bands listed in dead.txt (defaults to Grateful Dead):
+uv run showoftheday.py --dead
+uv run showoftheday.py --dead --date 07-04
+uv run showoftheday.py --dead --recent 30
 
 # Use a different mount point or player:
-python3 showoftheday.py --date 06-13 \
+uv run showoftheday.py --date 06-13 \
     --mount /Volumes/music \
     --player /Applications/VLC.app
 
 # Just print the M3U to stdout (pipe it, redirect it, etc.):
-python3 showoftheday.py --date 06-13 --print
+uv run showoftheday.py --date 06-13 --print
 ```
 
 ### Environment variables
