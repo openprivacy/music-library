@@ -4,6 +4,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "mysql-connector-python",
+#   "mutagen",
 # ]
 # ///
 
@@ -50,6 +51,7 @@ from pathlib import Path
 
 import mysql.connector
 from mysql.connector import MySQLConnection
+from mutagen.flac import FLAC
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -125,19 +127,21 @@ def upsert_track(
     track_num: int | None,
     title: str,
     file_mtime: datetime,
+    album: str | None = None,
 ) -> None:
     """Insert or update a track row."""
     cursor.execute(
         """
-        INSERT INTO tracks (show_id, file_path, track_num, title, file_mtime)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO tracks (show_id, file_path, track_num, title, album, file_mtime)
+        VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             track_num  = VALUES(track_num),
             title      = VALUES(title),
+            album      = VALUES(album),
             file_mtime = VALUES(file_mtime),
             updated_at = CURRENT_TIMESTAMP
         """,
-        (show_id, file_path, track_num, title, file_mtime),
+        (show_id, file_path, track_num, title, album, file_mtime),
     )
 
 
@@ -179,6 +183,19 @@ def mtime_to_datetime(path: Path) -> datetime:
     """Return the file's mtime as a naive UTC datetime."""
     ts = path.stat().st_mtime
     return datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
+
+
+def extract_album(path: Path) -> str | None:
+    """Read the album Vorbis comment from a FLAC file; returns None on failure."""
+    try:
+        audio = FLAC(str(path))
+        values = audio.get("album") or audio.get("ALBUM")
+        if values:
+            return str(values[0]).strip() or None
+        return None
+    except Exception as exc:
+        log.warning("Could not read metadata from %s: %s", path, exc)
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +288,7 @@ def scan_library(
                         continue
 
                 track_num, title = parse_track_filename(flac_file.name)
+                album = extract_album(flac_file)
                 upsert_track(
                     cursor,
                     show_id=show_id,
@@ -278,6 +296,7 @@ def scan_library(
                     track_num=track_num,
                     title=title,
                     file_mtime=file_mtime,
+                    album=album,
                 )
                 stats["tracks_upserted"] += 1
                 log.info("Indexed: %s", rel_path)

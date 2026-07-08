@@ -88,6 +88,7 @@ class Show(NamedTuple):
     show_date: str     # "yyyy-mm-dd"
     dir_path: str      # relative: "Band/yyyy-mm-dd"
     file_count: int
+    album: str         # from first track's metadata (empty string if unset)
 
 
 class Track(NamedTuple):
@@ -141,12 +142,15 @@ def shows_by_month_day(cursor, month_day: str, bands: list[str] | None = None) -
         params = (int(month), int(day), *bands)
     cursor.execute(
         f"""
-        SELECT id, band, CAST(show_date AS CHAR), dir_path, file_count
-        FROM shows
-        WHERE MONTH(show_date) = %s
-          AND DAY(show_date)   = %s
+        SELECT s.id, s.band, CAST(s.show_date AS CHAR), s.dir_path, s.file_count,
+               COALESCE(MIN(t.album), '') AS album
+        FROM shows s
+        LEFT JOIN tracks t ON t.show_id = s.id AND t.album IS NOT NULL
+        WHERE MONTH(s.show_date) = %s
+          AND DAY(s.show_date)   = %s
           {band_filter}
-        ORDER BY show_date, band
+        GROUP BY s.id, s.band, s.show_date, s.dir_path, s.file_count
+        ORDER BY s.show_date, s.band
         """,
         params,
     )
@@ -168,9 +172,11 @@ def shows_updated_recently(cursor, days: int, bands: list[str] | None = None) ->
         f"""
         SELECT s.id, s.band,
                CAST(s.show_date AS CHAR),
-               s.dir_path, s.file_count
+               s.dir_path, s.file_count,
+               COALESCE(MIN(ta.album), '') AS album
         FROM shows s
-        JOIN tracks t ON t.show_id = s.id
+        JOIN tracks t  ON t.show_id = s.id
+        LEFT JOIN tracks ta ON ta.show_id = s.id AND ta.album IS NOT NULL
         WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
           {band_filter}
         GROUP BY s.id, s.band, s.show_date, s.dir_path, s.file_count
@@ -232,10 +238,13 @@ def choose_show(shows: list[Show]) -> Show | None:
         return None
 
     print()
-    print(f"{'#':>4}  {'Date':<12}  {'Band':<40}  Tracks")
-    print("-" * 70)
+    print(f"{'#':>4}  {'Date':<12}  {'Band':<35}  {'Tracks':>6}  Album")
+    print("-" * 80)
     for i, show in enumerate(shows, start=1):
-        print(f"{i:>4}  {show.show_date:<12}  {show.band:<40}  {show.file_count}")
+        album = show.album
+        if len(album) > 28:
+            album = album[:27] + "\u2026"
+        print(f"{i:>4}  {show.show_date:<12}  {show.band:<35}  {show.file_count:>6}  {album}")
     print()
 
     while True:

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     file_path   VARCHAR(1024) NOT NULL,        -- relative: Band/yyyy-mm-dd/##-Song.flac
     track_num   TINYINT UNSIGNED,              -- leading ## parsed from filename
     title       VARCHAR(512)  NOT NULL,        -- Song_Name portion, underscores replaced
+    album       VARCHAR(512)  DEFAULT NULL,   -- album tag from file metadata
     file_mtime  DATETIME      NOT NULL,        -- filesystem modification time
     added_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -52,6 +53,9 @@ CREATE TABLE IF NOT EXISTS tracks (
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Migration guard: add album column to existing databases.
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS album VARCHAR(512) DEFAULT NULL AFTER title;
+
 -- ---------------------------------------------------------------------------
 -- Convenience view: full denormalised track listing
 -- ---------------------------------------------------------------------------
@@ -65,6 +69,7 @@ SELECT
     t.track_num,
     t.title,
     t.file_path,
+    t.album,
     t.file_mtime,
     t.updated_at    AS track_updated_at
 FROM tracks t
