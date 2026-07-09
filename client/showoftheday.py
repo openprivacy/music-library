@@ -238,12 +238,15 @@ def choose_show(shows: list[Show]) -> Show | None:
         return None
 
     print()
-    print(f"{'#':>4}  {'Date':<12}  {'Band':<35}  {'Tracks':>6}  Album")
+
+    print(f"{'#':>4}  {'Date':<12}  {'Band':<35}  {'Tracks':>6}  Venue")
     print("-" * 80)
     for i, show in enumerate(shows, start=1):
         album = show.album
-        if len(album) > 28:
-            album = album[:27] + "\u2026"
+        if len(album) > 10 and album[4] == "-" and album[7] == "-" and album[10] == " ":
+            album = album[11:]
+        if len(album) > 80:
+            album = album[:79] + "\u2026"
         print(f"{i:>4}  {show.show_date:<12}  {show.band:<35}  {show.file_count:>6}  {album}")
     print()
 
