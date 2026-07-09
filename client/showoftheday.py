@@ -250,13 +250,14 @@ def choose_show(shows: list[Show]) -> Show | None:
         print(f"{i:>4}  {show.show_date:<12}  {show.band:<35}  {show.file_count:>6}  {album}")
     print()
 
+
     while True:
         raw = input("Enter show number (or 'a' for all, 'q' to quit): ").strip()
         if raw.lower() == "q":
             return None
         if raw.lower() == "a":
             # Sentinel: the caller checks for None band.
-            return Show(-1, "", "", "", 0)
+            return Show(-1, "", "", "", 0, "")
         try:
             idx = int(raw) - 1
             if 0 <= idx < len(shows):
