@@ -46,7 +46,7 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import mysql.connector
@@ -126,7 +126,7 @@ def upsert_track(
     file_path: str,
     track_num: int | None,
     title: str,
-    file_mtime: datetime,
+    file_mtime: int,
     album: str | None = None,
 ) -> None:
     """Insert or update a track row."""
@@ -179,10 +179,9 @@ def parse_track_filename(filename: str) -> tuple[int | None, str]:
     return track_num, title
 
 
-def mtime_to_datetime(path: Path) -> datetime:
-    """Return the file's mtime as a naive UTC datetime."""
-    ts = path.stat().st_mtime
-    return datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
+def file_mtime_unix(path: Path) -> int:
+    """Return the file's mtime as a Unix timestamp (integer seconds)."""
+    return round(path.stat().st_mtime)
 
 
 def extract_album(path: Path) -> str | None:
@@ -227,7 +226,7 @@ def scan_library(
     cursor = conn.cursor()
 
     # Build a cache of existing track mtimes to skip unchanged files quickly.
-    track_mtime_cache: dict[str, datetime] = {}
+    track_mtime_cache: dict[str, int] = {}
     if not force_full:
         cursor.execute("SELECT file_path, file_mtime FROM tracks")
         for row in cursor.fetchall():
@@ -263,7 +262,7 @@ def scan_library(
 
             # Pre-compute mtimes once; reused for the fast-path check and the
             # per-track upsert below.
-            file_mtimes = {f: mtime_to_datetime(f) for f in flac_files}
+            file_mtimes = {f: file_mtime_unix(f) for f in flac_files}
 
             # Fast-path: if every track in this show is already cached with an
             # unchanged mtime, skip the whole show – no DB calls, no logging.
@@ -271,7 +270,7 @@ def scan_library(
                 if all(
                     track_mtime_cache.get(
                         str(Path(band_dir.name) / date_dir.name / f.name)
-                    ) == file_mtimes[f].replace(microsecond=0)
+                    ) == file_mtimes[f]
                     for f in flac_files
                 ):
                     stats["tracks_skipped"] += len(flac_files)
@@ -296,8 +295,7 @@ def scan_library(
                 # Skip if file is unchanged since last index run.
                 cached_mtime = track_mtime_cache.get(rel_path)
                 if cached_mtime and not force_full:
-                    # MySQL stores seconds; truncate microseconds for comparison.
-                    if cached_mtime == file_mtime.replace(microsecond=0):
+                    if cached_mtime == file_mtime:
                         stats["tracks_skipped"] += 1
                         if verbose:
                             log.debug("Unchanged: %s", rel_path)

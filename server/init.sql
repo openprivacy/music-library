@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     track_num   TINYINT UNSIGNED,              -- leading ## parsed from filename
     title       VARCHAR(512)  NOT NULL,        -- Song_Name portion, underscores replaced
     album       VARCHAR(512)  DEFAULT NULL,   -- album tag from file metadata
-    file_mtime  DATETIME      NOT NULL,        -- filesystem modification time
+    file_mtime  INT UNSIGNED  NOT NULL,        -- Unix timestamp (seconds since epoch)
     added_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
                               ON UPDATE CURRENT_TIMESTAMP,
