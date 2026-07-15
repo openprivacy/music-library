@@ -50,7 +50,7 @@ crontab -e
 
 # Add (runs at 02:00 every night):
 0 2 * * * MUSIC_DB_PASSWORD=mypassword \
-  /usr/bin/python3 /home/youruser/music-library/server/musicdir_index.py \
+  /home/youruser/.local/bin/uv run /home/youruser/music-library/server/musicdir_index.py \
   --root /imagine/flac >> /var/log/musicdir_index.log 2>&1
 ```
 

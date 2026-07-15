@@ -261,6 +261,22 @@ def scan_library(
                 Path(band_dir.name) / date_dir.name
             )  # e.g. "Grateful_Dead/1977-05-08"
 
+            # Pre-compute mtimes once; reused for the fast-path check and the
+            # per-track upsert below.
+            file_mtimes = {f: mtime_to_datetime(f) for f in flac_files}
+
+            # Fast-path: if every track in this show is already cached with an
+            # unchanged mtime, skip the whole show – no DB calls, no logging.
+            if not force_full and flac_files:
+                if all(
+                    track_mtime_cache.get(
+                        str(Path(band_dir.name) / date_dir.name / f.name)
+                    ) == file_mtimes[f].replace(microsecond=0)
+                    for f in flac_files
+                ):
+                    stats["tracks_skipped"] += len(flac_files)
+                    continue
+
             show_id = upsert_show(
                 cursor,
                 band=band,
@@ -275,7 +291,7 @@ def scan_library(
                 rel_path = str(
                     Path(band_dir.name) / date_dir.name / flac_file.name
                 )
-                file_mtime = mtime_to_datetime(flac_file)
+                file_mtime = file_mtimes[flac_file]
 
                 # Skip if file is unchanged since last index run.
                 cached_mtime = track_mtime_cache.get(rel_path)
