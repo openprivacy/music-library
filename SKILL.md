@@ -16,7 +16,7 @@ description: >
 # Project Context
 
 Self-hosted music library for a large FLAC soundboard collection on an XUbuntu
-Linux server, accessed from macOS. The server indexes files into MySQL; the Mac
+Linux server, accessed from macOS or Linux. The server indexes files into MySQL; the CLI
 CLI queries that DB and launches a local player.
 
 Two distinct "dates" exist in the system:
@@ -149,7 +149,7 @@ namedtuple always has a 6th field. The sentinel "all shows" value is
   sleep. VLC's stdout/stderr are suppressed with `DEVNULL`. Do NOT use
   `--one-instance` (broken on macOS) or `--no-playlist-enqueue` (not
   recognised by VLC 3.x).
-- **Music.app**: Apple Events `add`/`duplicate` are broken on managed macOS
+- **Music.app**: Apple Events `add`/`duplicate` are broken on some macOS
   devices. Current approach: write `{tmpdir}/FlacLibraryList.m3u`, open with
   `open -a /System/Applications/Music.app`. This creates a playlist named
   after the file stem. `--save` skips the AppleScript pre-delete step.
@@ -225,17 +225,17 @@ The "all shows" sentinel is `Show(-1, "", "", "", 0, "")` — six fields. If the
 is started with `start_new_session=True`. It was tested and confirmed broken.
 Use `pkill -x VLC` + fresh start instead.
 
-## Music.app on managed macOS
+## Music.app
 
 Apple Events `add` and `duplicate` are silently ignored (not an error) on
-managed devices. The M3U file-open approach (`open -a Music.app file.m3u`) is
+some devices. The M3U file-open approach (`open -a Music.app file.m3u`) is
 the only reliable method found.
 
 # Security and Operational Constraints
 
 - DB credentials are passed via environment variables; never hardcode them.
 - MySQL port is bound to `127.0.0.1` only in `docker-compose.yml`; access from
-  Mac is via SSH tunnel (`LocalForward 3306 127.0.0.1:3306`).
+  Mac or Linux is via SSH tunnel (`LocalForward 3306 127.0.0.1:3306`).
 - The Samba mount is read-only from the client's perspective; the indexer reads
   files but never writes to `/imagine/flac`.
 - `mutagen` reads FLAC metadata; exceptions are caught and logged as warnings
