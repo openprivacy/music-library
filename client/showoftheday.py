@@ -177,7 +177,7 @@ def shows_updated_recently(cursor, days: int, bands: list[str] | None = None) ->
         FROM shows s
         JOIN tracks t  ON t.show_id = s.id
         LEFT JOIN tracks ta ON ta.show_id = s.id AND ta.album IS NOT NULL
-        WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
+        WHERE t.file_mtime >= UNIX_TIMESTAMP() - (%s * 86400)
           {band_filter}
         GROUP BY s.id, s.band, s.show_date, s.dir_path, s.file_count
         ORDER BY MAX(t.file_mtime) DESC, s.band
@@ -214,7 +214,7 @@ def tracks_updated_recently(cursor, days: int, bands: list[str] | None = None) -
         SELECT t.id, t.track_num, t.title, t.file_path
         FROM tracks t
         JOIN shows s ON s.id = t.show_id
-        WHERE t.file_mtime >= NOW() - INTERVAL %s DAY
+        WHERE t.file_mtime >= UNIX_TIMESTAMP() - (%s * 86400)
           {band_filter}
         ORDER BY t.file_mtime DESC, t.file_path
         """,
