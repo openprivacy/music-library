@@ -44,7 +44,7 @@ Environment variables (or export before running)
     MUSIC_DB_PASSWORD                       (default: musicpass)
     MUSIC_DB_NAME                           (default: music)
     MUSIC_MOUNT        Samba mount point    (default: /Volumes/Flac)
-    MUSIC_PLAYER       App to open M3U with (default: /Applications/Swinsian.app)
+    MUSIC_PLAYER       App to open M3U with (default: /Applications/VLC.app)
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ DB_CONFIG = {
 }
 
 DEFAULT_MOUNT  = os.getenv("MUSIC_MOUNT",  "/Volumes/Flac")
-DEFAULT_PLAYER = os.getenv("MUSIC_PLAYER", "/Applications/Swinsian.app")
+DEFAULT_PLAYER = os.getenv("MUSIC_PLAYER", "/Applications/VLC.app")
 
 
 # ---------------------------------------------------------------------------
