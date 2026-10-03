@@ -145,6 +145,11 @@ def upsert_track(
     )
 
 
+def db_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return os.fsencode(value).decode("cp1252")
+
 # ---------------------------------------------------------------------------
 # Filesystem helpers
 # ---------------------------------------------------------------------------
@@ -306,11 +311,11 @@ def scan_library(
                 upsert_track(
                     cursor,
                     show_id=show_id,
-                    file_path=rel_path,
+                    file_path=db_text(rel_path),
                     track_num=track_num,
-                    title=title,
+                    title=db_text(title),
                     file_mtime=file_mtime,
-                    album=album,
+                    album=db_text(album),
                 )
                 stats["tracks_upserted"] += 1
                 log.info("Indexed: %s", rel_path)
