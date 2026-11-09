@@ -27,7 +27,7 @@ The `init.sql` schema is applied automatically on first start.
 ### 1c. Install Python dependencies (server)
 
 ```bash
-uv pip install mysql-connector-python
+uv pip install PyMySQL
 ```
 
 ### 1d. Run the initial full index

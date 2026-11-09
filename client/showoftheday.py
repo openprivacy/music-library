@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#   "mysql-connector-python",
+#   "PyMySQL",
 # ]
 # ///
 
@@ -34,7 +34,7 @@ Usage examples
 
 Requirements
 ------------
-    pip install mysql-connector-python
+    pip install PyMySQL
 
 Environment variables (or export before running)
 ------------------------------------------------
@@ -59,7 +59,7 @@ from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
-import mysql.connector
+import pymysql
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -122,8 +122,8 @@ def load_dead_bands() -> list[str]:
 # Database queries
 # ---------------------------------------------------------------------------
 
-def connect() -> mysql.connector.MySQLConnection:
-    return mysql.connector.connect(**DB_CONFIG)
+def connect() -> pymysql.Connection:
+    return pymysql.connect(**DB_CONFIG)
 
 
 def shows_by_month_day(cursor, month_day: str, bands: list[str] | None = None) -> list[Show]:
@@ -581,7 +581,7 @@ def main() -> None:
 
     try:
         conn = connect()
-    except mysql.connector.Error as exc:
+    except pymysql.MySQLError as exc:
         print(f"ERROR: Could not connect to database: {exc}", file=sys.stderr)
         sys.exit(1)
 
